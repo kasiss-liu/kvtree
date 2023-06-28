@@ -47,6 +47,21 @@ func (dc *DataCell) Copy() *DataCell {
 	d.Value = dc.Value
 	return d
 }
+func (di *DataCell) getStringValue() string {
+	bs := []byte{}
+	if di != nil {
+		if di.Type == "json" {
+			m := make(map[string]interface{})
+			json.Unmarshal([]byte(di.Value.(string)), &m)
+			di.Value = m
+			bs, _ = json.Marshal(di)
+		} else {
+			bs, _ = json.Marshal(di)
+		}
+	}
+
+	return string(bs)
+}
 
 type DataCellList []*DataCell
 
@@ -58,6 +73,15 @@ func (dcl DataCellList) Swap(i, j int) {
 }
 func (dcl DataCellList) Less(i, j int) bool {
 	return dcl[i].Ver < dcl[j].Ver
+}
+
+func (dcl DataCellList) String() string {
+	list := make([]string, len(dcl))
+	for i, item := range dcl {
+		list[i] = item.getStringValue()
+	}
+	bs, _ := json.Marshal(list)
+	return string(bs)
 }
 
 type DataNode struct {
@@ -137,28 +161,90 @@ func (di *DataNode) Value(ver ...string) string {
 			}
 		}
 	}
-	bs := []byte{}
-	if dc != nil {
-		if dc.Type == "json" {
-			m := make(map[string]interface{})
-			json.Unmarshal([]byte(dc.Value.(string)), &m)
-			dc.Value = m
-			bs, _ = json.Marshal(dc)
-		} else {
-			bs, _ = json.Marshal(dc)
+	return dc.getStringValue()
+}
+
+func (di *DataNode) ValueAll() DataCellList {
+	res := make([]*DataCell, 0)
+	if len(di.Val.List) > 0 {
+		for _, item := range di.Val.List {
+			dc := item.Copy()
+			res = append(res, dc)
 		}
 	}
-
-	return string(bs)
+	return res
 }
+
 func (di *DataNode) RawJson() string {
 	bs, _ := json.Marshal(di)
 	return string(bs)
 }
 
+func (di *DataNode) GetCell(ver ...string) *DataCell {
+	version := ""
+	if len(ver) > 0 {
+		version = ver[0]
+	}
+	var dc *DataCell
+	if len(di.Val.List) > 0 {
+		if version == "" {
+			dc = di.Val.List[0]
+		} else {
+			for _, item := range di.Val.List {
+				if item.Ver == version {
+					dc = item.Copy()
+					break
+				}
+			}
+		}
+	}
+	return dc
+}
+
 func (di *DataNode) VersionAll() string {
 	bs, _ := json.Marshal(di.Val.List)
 	return string(bs)
+}
+func (di *DataNode) VersionList() []string {
+	vers := make([]string, 0, len(di.Val.List))
+	for _, node := range di.Val.List {
+		vers = append(vers, node.Ver)
+	}
+	return vers
+}
+
+func (di *DataNode) CurVersion() string {
+	if len(di.Val.List) > 0 {
+		return di.Val.List[0].Ver
+	}
+	return ""
+}
+
+func (di *DataNode) Del(ver ...string) {
+	version := ""
+	if len(ver) > 0 {
+		version = ver[0]
+	}
+	if version == "" {
+		version = di.CurVersion()
+	}
+	if version != "" {
+		for i, node := range di.Val.List {
+			if node.Ver == version {
+				if i == 0 {
+					if len(di.Val.List) > 1 {
+						di.Val.List = di.Val.List[1:]
+					} else {
+						di.Val.List = make([]*DataCell, 0)
+					}
+				} else if i == len(di.Val.List)-1 {
+					di.Val.List = di.Val.List[:len(di.Val.List)-1]
+				} else {
+					di.Val.List = append(di.Val.List[:i], di.Val.List[i+1:]...)
+				}
+			}
+		}
+	}
 }
 
 func (di *DataNode) MapDataItem() DataMap {

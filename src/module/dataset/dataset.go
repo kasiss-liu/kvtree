@@ -20,7 +20,15 @@ type DataSet struct {
 func NewDataSetWithFileDir(dir string) (*DataSet, error) {
 	fs, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, err
+		if os.IsNotExist(err) {
+			os.MkdirAll(dir, 0755)
+			fs, err = os.ReadDir(dir)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 	ds := &DataSet{}
 	ds.DataDir = dir

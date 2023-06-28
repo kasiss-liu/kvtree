@@ -1,0 +1,17 @@
+[server]
+name="node01"
+port=8022
+addr="0.0.0.0"
+datastore="data"
+autosync=true
+
+[job]
+debug = true
+ticker = 1 # second
+
+[[user]]
+name="admin"
+passwd="admin"
+source=["test"]
+super = true
+
